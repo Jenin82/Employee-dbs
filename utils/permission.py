@@ -1,141 +1,137 @@
-import datetime
-from datetime import datetime
-
-import jwt
-from django.conf import settings
-from django.http import HttpRequest
-from rest_framework import authentication
-from rest_framework.authentication import get_authorization_header
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.permissions import BasePermission
-
-from employee_dbs.settings import SECRET_KEY
-from utils.utils import DateTimeUtils
-from .exception import CustomException
-from .response import CustomResponse
-
-def format_time(date_time):
-    formatted_time = date_time.strftime("%Y-%m-%d %H:%M:%S%z")
-    return datetime.strptime(formatted_time, "%Y-%m-%d %H:%M:%S%z")
+from functools import wraps
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework import status
+from rest_framework.response import Response
+from typing import Any, Dict, List
 
 
-class CustomizePermission(BasePermission):
-    """
-    Custom permission class to authenticate user based on bearer token.
+class CustomResponse:
+    """A custom response class for API views.
 
     Attributes:
-        token_prefix (str): The prefix of the token in the header.
-        secret_key (str): The secret key to verify the token signature.
+        message (Dict[str, Any]): A dictionary of messages.
+        response (Dict[str, Any]): A dictionary of response data.
     """
 
-    token_prefix = "Bearer"
-    secret_key = SECRET_KEY
-
-    def authenticate(self, request):
-        """
-        Authenticates the user based on the bearer token in the header.
-
-        Args:
-            request (HttpRequest): The HTTP request object.
-
-        Returns:
-            tuple: A tuple of (user, token_payload) if authentication is successful.
-
-        Raises:
-            CustomException: If authentication fails.
-        """
-        return JWTUtils.is_jwt_authenticated(request)
-
-    def authenticate_header(self, request):
-        """
-        Returns a string value for the WWW-Authenticate header.
+    def __init__(
+        self,
+        message: Dict[str, Any] = None,
+        general_message: List[str] = None,
+        response: Dict[str, Any] = None,
+    ) -> None:
+        """Initializes the CustomResponse object.
 
         Args:
-            request (HttpRequest): The HTTP request object.
+            message (Dict[str, Any], optional): A dictionary of messages.
+                Defaults to {}.
+            general_message (List[str], optional): A list of general messages.
+                Defaults to [].
+            response (Dict[str, Any], optional): A dictionary of response data.
+                Defaults to {}.
+        """
+        self.message = {} if message is None else message
+        self.general_message = [] if general_message is None else general_message
+        self.response = {} if response is None else response
+
+        if not isinstance(self.general_message, list):
+            self.general_message = [self.general_message]
+
+        self.message = {"general": self.general_message} | self.message
+        
+
+    def get_success_response(self) -> Response:
+        """Returns a success response.
 
         Returns:
-            str: The value for the WWW-Authenticate header.
+            Response: A success response object.
         """
-        return self.token_prefix + " realm=\"api\""
+        return Response(
+            data={
+                "hasError": False,
+                "statusCode": status.HTTP_200_OK,
+                "message": self.message,
+                "response": self.response,
+            },
+            status=status.HTTP_200_OK,
+        )
 
+    def get_failure_response(
+        self,
+        status_code: int = 400,
+        http_status_code: int = status.HTTP_400_BAD_REQUEST,
+    ) -> Response:
+        """Returns a failure response.
 
-class JWTUtils:
-    @staticmethod
-    def fetch_role(request):
-        token = authentication.get_authorization_header(request).decode("utf-8").split()
-        payload = jwt.decode(token[1], settings.SECRET_KEY, algorithms=["HS256"], verify=True)
-        roles = payload.get("roles")
-        if roles is None:
-            raise KeyError("The corresponding JWT token does not contain the 'roles' key")
-        return roles
+        Args:
+            status_code (int, optional): A custom status code for the response.
+                Defaults to 400.
+            http_status_code (int, optional): An HTTP status code for the response.
+                Defaults to status.HTTP_400_BAD_REQUEST.
 
-    @staticmethod
-    def fetch_user_id(request):
-        token = authentication.get_authorization_header(request).decode("utf-8").split()
-        payload = jwt.decode(token[1], settings.SECRET_KEY, algorithms=["HS256"], verify=True)
-        user_id = payload.get("id")
-        if user_id is None:
-            raise KeyError("The corresponding JWT token does not contain the 'user_id' key")
-        return user_id
-
-    @staticmethod
-    def is_jwt_authenticated(request):
-        token_prefix = "Bearer"
-        secret_key = SECRET_KEY
-        try:
-            auth_header = get_authorization_header(request).decode("utf-8")
-            if not auth_header or not auth_header.startswith(token_prefix):
-                raise CustomException("Invalid token header")
-
-            token = auth_header[len(token_prefix):].strip()
-            if not token:
-                raise CustomException("Empty Token")
-
-            payload = jwt.decode(token, secret_key, algorithms=["HS256"], verify=True)
-
-            user_id = payload.get("id")
-            expiry = datetime.strptime(payload.get("expiry"), "%Y-%m-%d %H:%M:%S%z")
-
-            if not user_id or expiry < DateTimeUtils.get_current_utc_time():
-                raise CustomException("Token Expired or Invalid")
-
-            return None, payload
-        except jwt.exceptions.InvalidSignatureError as e:
-            raise CustomException({
+        Returns:
+            Response: A failure response object.
+        """
+        return Response(
+            data={
                 "hasError": True,
-                "message": {"general": [str(e)]},
-                "statusCode": 1000,
-            })
-        except jwt.exceptions.DecodeError as e:
-            raise CustomException({
-                "hasError": True,
-                "message": {"general": [str(e)]},
-                "statusCode": 1000,
-            })
-        except AuthenticationFailed as e:
-            raise CustomException(str(e))
-        except Exception as e:
-            raise CustomException(
-                {
-                    "hasError": True,
-                    "message": {"general": [str(e)]},
-                    "statusCode": 1000,
-                }
-            )
+                "statusCode": status_code,
+                "message": self.message,
+                "response": self.response,
+            },
+            status=http_status_code,
+        )
 
+    def paginated_response(self, data: dict, pagination: dict) -> Response:
+        """
+        Generates a paginated response.
 
-def role_required(roles):
+        Args:
+            data (dict): The data to be included in the response.
+            pagination (dict): The pagination details.
+
+        Returns:
+            Response: The generated paginated response.
+
+        """
+
+        self.response.update({"data": data, "pagination": pagination})
+        return Response(
+            data={
+                "hasError": False,
+                "statusCode": status.HTTP_200_OK,
+                "message": self.message,
+                "response": self.response,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+def role_required(role_name):
     def decorator(view_func):
-        def wrapped_view_func(obj, request, *args, **kwargs):
-            for role in JWTUtils.fetch_role(request):
-                if role in roles:
-                    response = view_func(obj, request, *args, **kwargs)
-                    return response
-            res = CustomResponse(
-                general_message="You do not have the required role to access this page."
-            ).get_failure_response()
-            return res
-
-        return wrapped_view_func
-
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            # Verify JWT token and extract roles
+            jwt_auth = JWTAuthentication()
+            try:
+                auth_header = request.META.get('HTTP_AUTHORIZATION')
+                if not auth_header or not auth_header.startswith('Bearer '):
+                    raise ValueError("Invalid Authorization header")
+                token = auth_header.split(' ')[1]
+                validated_token = jwt_auth.get_validated_token(token)
+                user = jwt_auth.get_user(validated_token)
+                user_roles = user.role
+            except Exception as e:
+                return Response(
+                    {"error": str(e)},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            if user_roles != role_name:
+                return Response(
+                    {"error": "Unauthorized"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            return view_func(request, *args, **kwargs)
+        return wrapper
     return decorator

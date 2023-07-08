@@ -19,7 +19,7 @@ class User(AbstractUser):
     gender = models.CharField(max_length=10, null=True)
     dob = models.DateField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return self.username
