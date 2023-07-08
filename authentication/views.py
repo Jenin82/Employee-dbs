@@ -18,12 +18,15 @@ class EmployeeAuthentication(APIView):
         if user is not None:
             refresh_token = RefreshToken.for_user(user)
 
-            token = {
-                'refresh': str(refresh_token),
-                'access': str(refresh_token.access_token),
+            access_token = str(refresh_token.access_token)
+            refresh_token = str(refresh_token)
+
+            token_data = {
+                'refresh': refresh_token,
+                'access': access_token,
             }
 
-            return Response(token)
+            return CustomResponse(response=token_data).get_success_response()
 
         return CustomResponse(response={"error": "User not found"}).get_failure_response()
 

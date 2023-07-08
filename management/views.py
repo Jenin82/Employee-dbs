@@ -35,9 +35,11 @@ class UserCreateView(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return CustomResponse(response=serializer.data).get_success_response()
-        return CustomResponse(response=serializer.errors).get_failure_response()
+            user = serializer.save()
+            response_data = {'message': 'User created successfully', 'user': serializer.data}
+            return CustomResponse(response=response_data).get_success_response()
+        response_data = {'errors': serializer.errors}
+        return CustomResponse(response=response_data).get_failure_response()
 
     @role_required("admin")
     def patch(self, request, pk=None):
