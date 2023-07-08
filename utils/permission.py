@@ -5,6 +5,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from rest_framework.response import Response
 from typing import Any, Dict, List
+import inspect
+from rest_framework import authentication
+
 
 
 class CustomResponse:
@@ -110,7 +113,7 @@ class CustomResponse:
 def role_required(role_name):
     def decorator(view_func):
         @wraps(view_func)
-        def wrapper(request, *args, **kwargs):
+        def wrapper(self, request, *args, **kwargs):
             # Verify JWT token and extract roles
             jwt_auth = JWTAuthentication()
             try:
@@ -127,11 +130,11 @@ def role_required(role_name):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
-            if user_roles != role_name:
+            if user_roles.name != role_name:
                 return Response(
                     {"error": "Unauthorized"}, 
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-            return view_func(request, *args, **kwargs)
+            return view_func(self, request, *args, **kwargs)
         return wrapper
     return decorator
