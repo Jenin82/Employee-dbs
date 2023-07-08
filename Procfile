@@ -1,0 +1,1 @@
+web: gunicorn 'employee_dbs.wsgi'
