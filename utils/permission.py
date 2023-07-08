@@ -5,9 +5,6 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from rest_framework.response import Response
 from typing import Any, Dict, List
-import inspect
-from rest_framework import authentication
-
 
 
 class CustomResponse:
@@ -42,7 +39,6 @@ class CustomResponse:
             self.general_message = [self.general_message]
 
         self.message = {"general": self.general_message} | self.message
-        
 
     def get_success_response(self) -> Response:
         """Returns a success response.
@@ -110,31 +106,29 @@ class CustomResponse:
             status=status.HTTP_200_OK,
         )
 
+
 def role_required(role_name):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(self, request, *args, **kwargs):
-            # Verify JWT token and extract roles
             jwt_auth = JWTAuthentication()
             try:
-                auth_header = request.META.get('HTTP_AUTHORIZATION')
-                if not auth_header or not auth_header.startswith('Bearer '):
+                auth_header = request.META.get("HTTP_AUTHORIZATION")
+                if not auth_header or not auth_header.startswith("Bearer "):
                     raise ValueError("Invalid Authorization header")
-                token = auth_header.split(' ')[1]
+                token = auth_header.split(" ")[1]
                 validated_token = jwt_auth.get_validated_token(token)
                 user = jwt_auth.get_user(validated_token)
                 user_roles = user.role
             except Exception as e:
-                return Response(
-                    {"error": str(e)},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-            
+                return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
             if user_roles.name != role_name:
                 return Response(
-                    {"error": "Unauthorized"}, 
-                    status=status.HTTP_401_UNAUTHORIZED
+                    {"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED
                 )
             return view_func(self, request, *args, **kwargs)
+
         return wrapper
+
     return decorator
