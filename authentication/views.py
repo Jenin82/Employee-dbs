@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from utils.response import CustomResponse
 
 class EmployeeAuthentication(APIView):
     def post(self, request):
@@ -24,5 +25,5 @@ class EmployeeAuthentication(APIView):
 
             return Response(token)
 
-        return Response({'error': 'Invalid credentials'}, status=400)
+        return CustomResponse(response={"error": "User not found"}).get_failure_response()
 
