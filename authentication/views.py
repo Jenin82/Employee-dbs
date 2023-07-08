@@ -1,19 +1,26 @@
-from django.shortcuts import render
-
-# Create your views here.
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
-class LoginView(APIView):
+class EmployeeAuthentication(APIView):
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
 
+        # Perform authentication
         user = authenticate(request, username=username, password=password)
-        
+
         if user is not None:
-            login(request, user)
-            return Response({'message': 'Login successful'})
-        else:
-            return Response({'message': 'Invalid credentials'}, status=401)
+            serializer = TokenObtainPairSerializer(data={'username': username, 'password': password})
+            serializer.is_valid(raise_exception=True)
+            refresh_token = RefreshToken.for_user(user)
+            token = {
+                'refresh': str(refresh_token),
+                'access': str(refresh_token.access_token),
+            }
+            return Response(token)
+        
+        # Handle invalid credentials
+        return Response({'error': 'Invalid credentials'}, status=400)
