@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from authentication.models import DepartmentUserLink, User
+from authentication.models import DepartmentUserLink, Role, User
 
 class UserDepartmentSerializer(serializers.ModelSerializer):
     department = serializers.SerializerMethodField()
@@ -34,3 +34,9 @@ class UserDepartmentSerializer(serializers.ModelSerializer):
             "role",
             "role_name",
         ]
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name']

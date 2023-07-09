@@ -1,12 +1,12 @@
 # Create your views here.
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .serializer import UserDepartmentSerializer
+from .serializer import RoleSerializer, UserDepartmentSerializer
 from rest_framework.permissions import IsAuthenticated
 from utils.permission import get_user_from_request, role_required
 from utils.types import RoleType
 from rest_framework import status
-from authentication.models import User, DepartmentUserLink
+from authentication.models import Role, User, DepartmentUserLink
 from utils.response import CustomResponse
 
 
@@ -100,3 +100,75 @@ class AdminDetailView(APIView):
             return CustomResponse(
                 response={"error": "User not found"}
             ).get_failure_response()
+
+class AdminDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required(RoleType.MANAGER.value)
+    def get(self, request):
+        try:
+            user = get_user_from_request(request)
+            serializer = UserDepartmentSerializer(user)
+            return CustomResponse(response=serializer.data).get_success_response()
+        except User.DoesNotExist:
+            return CustomResponse(
+                response={"error": "User not found"}
+            ).get_failure_response()
+            
+            
+class RoleAPIView(APIView):
+    def get(self, request):
+        roles = Role.objects.all()
+        serializer = RoleSerializer(roles, many=True)
+        response = CustomResponse(response=serializer.data)
+        return response.get_success_response()
+
+    def post(self, request):
+        serializer = RoleSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            response = CustomResponse(response=serializer.data)
+            return response.get_success_response()
+        response = CustomResponse(message=serializer.errors)
+        return response.get_failure_response()
+
+class RoleDetailAPIView(APIView):
+    def get_object(self, role_id):
+        try:
+            return Role.objects.get(id=role_id)
+        except Role.DoesNotExist:
+            return None
+
+    def get(self, request, role_id):
+        if role := self.get_object(role_id):
+            serializer = RoleSerializer(role)
+            response = CustomResponse(response=serializer.data)
+            return response.get_success_response()
+        response = CustomResponse(
+            general_message=["Role does not exist."]
+        )
+        return response.get_failure_response(status_code=404, http_status_code=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, role_id):
+        if role := self.get_object(role_id):
+            serializer = RoleSerializer(role, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                response = CustomResponse(response=serializer.data)
+                return response.get_success_response()
+            response = CustomResponse(message=serializer.errors)
+            return response.get_failure_response()
+        response = CustomResponse(
+            general_message=["Role does not exist."]
+        )
+        return response.get_failure_response(status_code=404, http_status_code=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, role_id):
+        if role := self.get_object(role_id):
+            role.delete()
+            response = CustomResponse()
+            return response.get_success_response()
+        response = CustomResponse(
+            general_message=["Role does not exist."]
+        )
+        return response.get_failure_response(status_code=404, http_status_code=status.HTTP_404_NOT_FOUND)
