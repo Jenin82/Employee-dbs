@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .serializer import UserSerializer, UserDepartmentSerializer
 from rest_framework.permissions import IsAuthenticated
-from utils.permission import role_required
+from utils.permission import get_user_from_request, role_required
 from utils.types import RoleType
 from rest_framework import status
 from authentication.models import User, DepartmentUserLink
@@ -13,7 +13,7 @@ from utils.response import CustomResponse
 class UserCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required(RoleType.ADMIN.value)
+    @role_required(RoleType.MANAGER.value)
     def get(self, request, pk=None):
         if pk is not None:
             try:
@@ -24,7 +24,7 @@ class UserCreateView(APIView):
                 return CustomResponse(
                     response={"error": "User not found"}
                 ).get_failure_response()
-            serializer = UserSerializer(user)
+            serializer = UserDepartmentSerializer(user)
         else:
             # List all users with their departments
             users = User.objects.prefetch_related(
@@ -33,7 +33,7 @@ class UserCreateView(APIView):
             serializer = UserDepartmentSerializer(users, many=True)
         return CustomResponse(response=serializer.data).get_success_response()
 
-    @role_required(RoleType.ADMIN.value)
+    @role_required(RoleType.MANAGER.value)
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -44,7 +44,7 @@ class UserCreateView(APIView):
 
         return CustomResponse(response=serializer.errors).get_failure_response()
 
-    @role_required(RoleType.ADMIN.value)
+    @role_required(RoleType.MANAGER.value)
     def patch(self, request, pk=None):
         if pk is not None:
             try:
@@ -76,7 +76,7 @@ class UserCreateView(APIView):
                 response={"message": "Department updated successfully"}
             ).get_success_response()
 
-    @role_required(RoleType.ADMIN.value)
+    @role_required(RoleType.MANAGER.value)
     def delete(self, request, pk):
         try:
             user = User.objects.get(pk=pk)
@@ -86,3 +86,18 @@ class UserCreateView(APIView):
             ).get_failure_response()
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required(RoleType.MANAGER.value)
+    def get(self, request):
+        try:
+            user = get_user_from_request(request)
+            serializer = UserDepartmentSerializer(user)
+            return CustomResponse(response=serializer.data).get_success_response()
+        except User.DoesNotExist:
+            return CustomResponse(
+                response={"error": "User not found"}
+            ).get_failure_response()
