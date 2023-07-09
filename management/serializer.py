@@ -1,25 +1,9 @@
 from rest_framework import serializers
 from authentication.models import DepartmentUserLink, User
 
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "password",
-            "mobile",
-            "gender",
-            "dob",
-            "role",
-        ]
-
-
 class UserDepartmentSerializer(serializers.ModelSerializer):
     department = serializers.SerializerMethodField()
+    role_name = serializers.SerializerMethodField()
 
     def get_department(self, user):
         try:
@@ -30,6 +14,10 @@ class UserDepartmentSerializer(serializers.ModelSerializer):
             }
         except DepartmentUserLink.DoesNotExist:
             return None
+
+    def get_role_name(self, user):
+        role = user.role
+        return role.name if role else None
 
     class Meta:
         model = User
@@ -43,4 +31,6 @@ class UserDepartmentSerializer(serializers.ModelSerializer):
             "dob",
             "created_at",
             "department",
+            "role",
+            "role_name",
         ]
