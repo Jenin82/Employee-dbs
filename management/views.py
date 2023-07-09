@@ -13,7 +13,6 @@ from utils.response import CustomResponse
 class UserCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required(RoleType.MANAGER.value)
     def get(self, request, pk=None):
         if pk is not None:
             try:
@@ -100,29 +99,19 @@ class AdminDetailView(APIView):
             return CustomResponse(
                 response={"error": "User not found"}
             ).get_failure_response()
-
-class AdminDetailView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @role_required(RoleType.MANAGER.value)
-    def get(self, request):
-        try:
-            user = get_user_from_request(request)
-            serializer = UserDepartmentSerializer(user)
-            return CustomResponse(response=serializer.data).get_success_response()
-        except User.DoesNotExist:
-            return CustomResponse(
-                response={"error": "User not found"}
-            ).get_failure_response()
             
             
 class RoleAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required(RoleType.MANAGER.value)
     def get(self, request):
         roles = Role.objects.all()
         serializer = RoleSerializer(roles, many=True)
         response = CustomResponse(response=serializer.data)
         return response.get_success_response()
-
+    
+    @role_required(RoleType.MANAGER.value)
     def post(self, request):
         serializer = RoleSerializer(data=request.data)
         if serializer.is_valid():
@@ -133,12 +122,16 @@ class RoleAPIView(APIView):
         return response.get_failure_response()
 
 class RoleDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @role_required(RoleType.MANAGER.value)
     def get_object(self, role_id):
         try:
             return Role.objects.get(id=role_id)
         except Role.DoesNotExist:
             return None
-
+        
+    @role_required(RoleType.MANAGER.value)
     def get(self, request, role_id):
         if role := self.get_object(role_id):
             serializer = RoleSerializer(role)
@@ -148,7 +141,8 @@ class RoleDetailAPIView(APIView):
             general_message=["Role does not exist."]
         )
         return response.get_failure_response(status_code=404, http_status_code=status.HTTP_404_NOT_FOUND)
-
+    
+    @role_required(RoleType.MANAGER.value)
     def put(self, request, role_id):
         if role := self.get_object(role_id):
             serializer = RoleSerializer(role, data=request.data)
@@ -162,7 +156,8 @@ class RoleDetailAPIView(APIView):
             general_message=["Role does not exist."]
         )
         return response.get_failure_response(status_code=404, http_status_code=status.HTTP_404_NOT_FOUND)
-
+    
+    @role_required(RoleType.MANAGER.value)
     def delete(self, request, role_id):
         if role := self.get_object(role_id):
             role.delete()
