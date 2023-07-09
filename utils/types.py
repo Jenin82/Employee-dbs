@@ -2,4 +2,5 @@ from enum import Enum
 
 
 class RoleType(Enum):
-    ADMIN = "Admin"
+    MANAGER = "Manager"
+    EMPLOYEE = "Employee"
