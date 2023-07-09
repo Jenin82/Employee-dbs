@@ -1,110 +1,9 @@
 from functools import wraps
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
-from rest_framework.response import Response
-from typing import Any, Dict, List
 
-
-class CustomResponse:
-    """A custom response class for API views.
-
-    Attributes:
-        message (Dict[str, Any]): A dictionary of messages.
-        response (Dict[str, Any]): A dictionary of response data.
-    """
-
-    def __init__(
-        self,
-        message: Dict[str, Any] = None,
-        general_message: List[str] = None,
-        response: Dict[str, Any] = None,
-    ) -> None:
-        """Initializes the CustomResponse object.
-
-        Args:
-            message (Dict[str, Any], optional): A dictionary of messages.
-                Defaults to {}.
-            general_message (List[str], optional): A list of general messages.
-                Defaults to [].
-            response (Dict[str, Any], optional): A dictionary of response data.
-                Defaults to {}.
-        """
-        self.message = {} if message is None else message
-        self.general_message = [] if general_message is None else general_message
-        self.response = {} if response is None else response
-
-        if not isinstance(self.general_message, list):
-            self.general_message = [self.general_message]
-
-        self.message = {"general": self.general_message} | self.message
-
-    def get_success_response(self) -> Response:
-        """Returns a success response.
-
-        Returns:
-            Response: A success response object.
-        """
-        return Response(
-            data={
-                "hasError": False,
-                "statusCode": status.HTTP_200_OK,
-                "message": self.message,
-                "response": self.response,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    def get_failure_response(
-        self,
-        status_code: int = 400,
-        http_status_code: int = status.HTTP_400_BAD_REQUEST,
-    ) -> Response:
-        """Returns a failure response.
-
-        Args:
-            status_code (int, optional): A custom status code for the response.
-                Defaults to 400.
-            http_status_code (int, optional): An HTTP status code for the response.
-                Defaults to status.HTTP_400_BAD_REQUEST.
-
-        Returns:
-            Response: A failure response object.
-        """
-        return Response(
-            data={
-                "hasError": True,
-                "statusCode": status_code,
-                "message": self.message,
-                "response": self.response,
-            },
-            status=http_status_code,
-        )
-
-    def paginated_response(self, data: dict, pagination: dict) -> Response:
-        """
-        Generates a paginated response.
-
-        Args:
-            data (dict): The data to be included in the response.
-            pagination (dict): The pagination details.
-
-        Returns:
-            Response: The generated paginated response.
-
-        """
-
-        self.response.update({"data": data, "pagination": pagination})
-        return Response(
-            data={
-                "hasError": False,
-                "statusCode": status.HTTP_200_OK,
-                "message": self.message,
-                "response": self.response,
-            },
-            status=status.HTTP_200_OK,
-        )
+from utils.response import CustomResponse
 
 
 def role_required(role_name):
@@ -119,14 +18,23 @@ def role_required(role_name):
                 token = auth_header.split(" ")[1]
                 validated_token = jwt_auth.get_validated_token(token)
                 user = jwt_auth.get_user(validated_token)
-                user_roles = user.role
-            except Exception as e:
-                return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+                try:
+                    user_roles = user.role
+                except AttributeError as e:
+                    raise PermissionError
 
-            if user_roles.name != role_name:
-                return Response(
-                    {"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED
+                if user_roles.name != role_name:
+                    raise PermissionError
+
+            except PermissionError as e:
+                return CustomResponse(response="Unauthorized").get_failure_response(
+                    status_code=401, http_status_code=status.HTTP_401_UNAUTHORIZED
                 )
+            except Exception as e:
+                return CustomResponse(response="Error").get_failure_response(
+                    status_code=401, http_status_code=status.HTTP_401_UNAUTHORIZED
+                )
+
             return view_func(self, request, *args, **kwargs)
 
         return wrapper

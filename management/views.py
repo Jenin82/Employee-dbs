@@ -7,7 +7,7 @@ from utils.permission import role_required
 from utils.types import RoleType
 from rest_framework import status
 from authentication.models import User, DepartmentUserLink
-
+from utils.response import CustomResponse
 
 class UserCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -20,10 +20,7 @@ class UserCreateView(APIView):
                     "departmentuserlink_set__department"
                 ).get(pk=pk)
             except User.DoesNotExist:
-                return Response(
-                    {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
-                )
-
+                return CustomResponse(response={"error": "User not found"}).get_failure_response()
             serializer = UserSerializer(user)
         else:
             # List all users with their departments
@@ -31,16 +28,18 @@ class UserCreateView(APIView):
                 "departmentuserlink_set__department"
             ).all()
             serializer = UserDepartmentSerializer(users, many=True)
+        return CustomResponse(response=serializer.data).get_success_response()
 
-        return Response(serializer.data)
 
     @role_required(RoleType.ADMIN.value)
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+            user = serializer.save()
+            response_data = {'message': 'User created successfully', 'user': serializer.data}
+            return CustomResponse(response=response_data).get_success_response()
+        response_data = {'errors': serializer.errors}
+        return CustomResponse(response=response_data).get_failure_response()
 
     @role_required("admin")
     def patch(self, request, pk=None):
@@ -55,8 +54,8 @@ class UserCreateView(APIView):
             serializer = UserSerializer(user, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return CustomResponse(response=serializer.data).get_success_response()
+            return CustomResponse(response=serializer.errors).get_failure_response()
 
         else:
             department_id = request.data.get("department_id")
@@ -65,24 +64,16 @@ class UserCreateView(APIView):
             try:
                 department_user_link = DepartmentUserLink.objects.get(user_id=user_id)
             except DepartmentUserLink.DoesNotExist:
-                return Response(
-                    {"error": "Department-User link not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
+                return CustomResponse(response={"error": "Department-User link not found"}).get_failure_response()
             department_user_link.department_id = department_id
             department_user_link.save()
-
-            return Response({"message": "Department updated successfully"})
+            return CustomResponse(response={"message": "Department updated successfully"}).get_success_response()
 
     @role_required("admin")
     def delete(self, request, pk):
         try:
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
-            return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
+            return CustomResponse(response={"error": "User not found"}).get_failure_response()
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
