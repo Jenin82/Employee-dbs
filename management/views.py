@@ -1,4 +1,5 @@
 # Create your views here.
+from tkinter import TRUE
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .serializer import RoleSerializer, UserDepartmentSerializer
@@ -43,36 +44,19 @@ class UserCreateView(APIView):
         return CustomResponse(response=serializer.errors).get_failure_response()
 
     @role_required(RoleType.MANAGER.value)
-    def patch(self, request, pk=None):
-        if pk is not None:
-            try:
-                user = User.objects.get(pk=pk)
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
-                )
+    def patch(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
-            serializer = UserDepartmentSerializer(user, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return CustomResponse(response=serializer.data).get_success_response()
-            return CustomResponse(response=serializer.errors).get_failure_response()
-
-        else:
-            department_id = request.data.get("department_id")
-            user_id = request.data.get("user_id")
-
-            try:
-                department_user_link = DepartmentUserLink.objects.get(user_id=user_id)
-            except DepartmentUserLink.DoesNotExist:
-                return CustomResponse(
-                    response={"error": "Department-User link not found"}
-                ).get_failure_response()
-            department_user_link.department_id = department_id
-            department_user_link.save()
-            return CustomResponse(
-                response={"message": "Department updated successfully"}
-            ).get_success_response()
+        serializer = UserDepartmentSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return CustomResponse(response=serializer.data).get_success_response()
+        return CustomResponse(response=serializer.errors).get_failure_response()
 
     @role_required(RoleType.MANAGER.value)
     def delete(self, request, pk):
@@ -83,7 +67,7 @@ class UserCreateView(APIView):
                 response={"error": "User not found"}
             ).get_failure_response()
         user.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return CustomResponse(message=status.HTTP_204_NO_CONTENT).get_failure_response()
 
 
 class AdminDetailView(APIView):
@@ -124,7 +108,6 @@ class RoleAPIView(APIView):
 class RoleDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @role_required(RoleType.MANAGER.value)
     def get_object(self, role_id):
         try:
             return Role.objects.get(id=role_id)
@@ -143,9 +126,10 @@ class RoleDetailAPIView(APIView):
         return response.get_failure_response(status_code=404, http_status_code=status.HTTP_404_NOT_FOUND)
     
     @role_required(RoleType.MANAGER.value)
-    def put(self, request, role_id):
+    def patch(self, request, role_id):
+        role = self.get_object(role_id)
         if role := self.get_object(role_id):
-            serializer = RoleSerializer(role, data=request.data)
+            serializer = RoleSerializer(role, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 response = CustomResponse(response=serializer.data)
