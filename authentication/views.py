@@ -28,5 +28,5 @@ class EmployeeAuthentication(APIView):
 
             return CustomResponse(response=token_data).get_success_response()
 
-        return CustomResponse(response={"error": "User not found"}).get_failure_response()
+        return CustomResponse(response={"error": "Invalid Username or password"}).get_failure_response()
 

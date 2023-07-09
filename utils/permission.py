@@ -47,7 +47,7 @@ def role_required(role_name):
                     status_code=401, http_status_code=status.HTTP_401_UNAUTHORIZED
                 )
             except Exception as e:
-                return CustomResponse(response="Error").get_failure_response(
+                return CustomResponse(response=str(e)).get_failure_response(
                     status_code=401, http_status_code=status.HTTP_401_UNAUTHORIZED
                 )
 

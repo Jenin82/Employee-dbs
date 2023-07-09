@@ -1,7 +1,7 @@
 # Create your views here.
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .serializer import UserSerializer, UserDepartmentSerializer
+from .serializer import UserDepartmentSerializer
 from rest_framework.permissions import IsAuthenticated
 from utils.permission import get_user_from_request, role_required
 from utils.types import RoleType
@@ -26,7 +26,6 @@ class UserCreateView(APIView):
                 ).get_failure_response()
             serializer = UserDepartmentSerializer(user)
         else:
-            # List all users with their departments
             users = User.objects.prefetch_related(
                 "departmentuserlink_set__department"
             ).all()
@@ -35,7 +34,7 @@ class UserCreateView(APIView):
 
     @role_required(RoleType.MANAGER.value)
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = UserDepartmentSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             return CustomResponse(
@@ -54,7 +53,7 @@ class UserCreateView(APIView):
                     {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
                 )
 
-            serializer = UserSerializer(user, data=request.data, partial=True)
+            serializer = UserDepartmentSerializer(user, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return CustomResponse(response=serializer.data).get_success_response()
